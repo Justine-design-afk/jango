@@ -1,0 +1,4 @@
+package Dashboard
+
+class Dashboard {
+}
