@@ -2,41 +2,60 @@ package homescreen
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-data class FoodItem(
-    val name: String,
-    val price: String,
-    val description: String,
-    val rating: String
-)
-
-val menuItems = listOf(
-    FoodItem("Gourmet Truffle Pasta", "$24.99", "Creamy tagliatelle with black truffle and parmesan.", "4.8"),
-    FoodItem("Grilled Salmon Steak", "$28.50", "Atlantic salmon served with asparagus and lemon butter.", "4.9"),
-    FoodItem("Wagyu Beef Burger", "$22.00", "Premium wagyu beef with brioche bun and caramelized onions.", "4.7"),
-    FoodItem("Mediterranean Salad", "$15.95", "Fresh greens, olives, feta cheese, and balsamic glaze.", "4.6"),
-    FoodItem("Lobster Bisque", "$18.00", "Rich and creamy lobster soup with a hint of cognac.", "4.8")
-)
+data class QuickAction(val title: String, val icon: ImageVector)
+data class UserOrder(val dishName: String, val status: String, val time: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen() {
+fun DashboardScreen(
+    onRoomServiceClick: () -> Unit,
+    onProfileClick: () -> Unit,
+    onBookRoomClick: () -> Unit,
+) {
+    var feedbackText by remember { mutableStateOf("") }
+    val orders = remember { mutableStateListOf<UserOrder>() }
+    
+    // Some initial data
+    LaunchedEffect(Unit) {
+        if (orders.isEmpty()) {
+            orders.add(UserOrder("Gourmet Truffle Pasta", "Preparing", "12:30 PM"))
+        }
+    }
+
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Hotel Menu", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+            LargeTopAppBar(
+                title = { 
+                    Column {
+                        Text("Welcome Back,", style = MaterialTheme.typography.titleMedium)
+                        Text("Hotel Guest", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onProfileClick) {
+                        Icon(Icons.Default.Person, contentDescription = "Profile")
+                    }
+                    IconButton(onClick = { /* TODO */ }) {
+                        Icon(Icons.Default.Notifications, contentDescription = "Notifications")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
@@ -47,80 +66,147 @@ fun DashboardScreen() {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
+            item { Spacer(modifier = Modifier.height(8.dp)) }
+
+            // Quick Actions Section
             item {
-                Text(
-                    text = "Exclusive Dining",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Hand-picked delicacies for our guests",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray
-                )
-                Spacer(modifier = Modifier.height(16.dp))
+                Text("Quick Services", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(12.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    val actions = listOf(
+                        QuickAction("Room Service", Icons.Default.RoomService),
+                        QuickAction("Book Room", Icons.Default.Hotel),
+                        QuickAction("Housekeeping", Icons.Default.CleaningServices),
+                        QuickAction("Laundry", Icons.Default.LocalLaundryService),
+                        QuickAction("Concierge", Icons.Default.SupportAgent)
+                    )
+                    items(actions) { action ->
+                        ActionCard(action, onClick = {
+                            when (action.title) {
+                                "Room Service" -> onRoomServiceClick()
+                                "Book Room" -> onBookRoomClick()
+                            }
+                        })
+                    }
+                }
             }
 
-            items(menuItems) { item ->
-                FoodCard(item)
+            // Order Status Section (Stored Data Display)
+            item {
+                Text("Active Orders", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(12.dp))
+                if (orders.isEmpty()) {
+                    Text("No active orders", color = Color.Gray)
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        orders.forEach { order ->
+                            OrderCard(order)
+                        }
+                    }
+                }
             }
+
+            // User Input Section (Feedback/Request)
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "Special Request & Feedback", 
+                            style = MaterialTheme.typography.titleMedium, 
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = feedbackText,
+                            onValueChange = { feedbackText = it },
+                            placeholder = { Text("How can we make your stay better?") },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 3,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = { 
+                                if (feedbackText.isNotBlank()) {
+                                    // Storing feedback locally or via log for now
+                                    println("Feedback Stored: $feedbackText")
+                                    feedbackText = ""
+                                }
+                            },
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Text("Send Request")
+                        }
+                    }
+                }
+            }
+            
+            item { Spacer(modifier = Modifier.height(24.dp)) }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ActionCard(action: QuickAction, onClick: () -> Unit) {
+    ElevatedCard(
+        modifier = Modifier.size(110.dp),
+        shape = RoundedCornerShape(16.dp),
+        onClick = onClick
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(action.icon, contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(action.title, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
         }
     }
 }
 
 @Composable
-fun FoodCard(item: FoodItem) {
+fun OrderCard(order: UserOrder) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        shape = RoundedCornerShape(12.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = item.name,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = item.price,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(order.dishName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                Text("Ordered at ${order.time}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = item.description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.Gray
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Surface(
+                color = MaterialTheme.colorScheme.tertiaryContainer,
+                shape = RoundedCornerShape(16.dp)
             ) {
                 Text(
-                    text = "⭐ ${item.rating}",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold
+                    text = order.status, 
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer
                 )
-                Button(
-                    onClick = { /* TODO: Order */ },
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text("Order Now", fontSize = 12.sp)
-                }
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun DashboardPreview() {
+    MaterialTheme {
+        DashboardScreen(onRoomServiceClick = {}, onProfileClick = {}, onBookRoomClick = {})
     }
 }
